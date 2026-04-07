@@ -1,5 +1,298 @@
 <!doctype html>
-<html>
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body>hello</body>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>微记</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{--bg:#f6f7fb;--card:#fff;--ink:#1f2430;--muted:#7e8594;--line:#e6e8ef;--accent:#ff4d6d}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans SC",sans-serif}
+    .wrap{max-width:760px;margin:0 auto;padding:12px 12px 92px}.hide{display:none}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    input,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px}
+    textarea{min-height:110px;resize:vertical}
+    .btn{padding:9px 12px;border:1px solid var(--line);background:#fff;border-radius:10px;cursor:pointer}
+    .btn.p{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+    .muted{font-size:12px;color:var(--muted)}
+    .profile{padding:0;overflow:hidden}.bg{height:150px;background:#ddd center/cover}
+    .avatar{width:78px;height:78px;border-radius:999px;border:3px solid #fff;background:#eee center/cover;margin:-39px 12px 8px}
+    .name{font-size:22px;font-weight:800;padding:0 12px}.bio{padding:6px 12px 10px;color:var(--muted)}
+    .subtabs{display:flex;gap:8px;padding:0 12px 12px;overflow:auto}
+    .subtab{padding:7px 10px;border:1px solid var(--line);border-radius:999px;background:#fff;cursor:pointer}
+    .subtab.on{border-color:#ffb7c6;background:#fff3f7;color:#b91f3f;font-weight:700}
+    .post{border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff;margin-bottom:8px}
+    .post .time{font-size:12px;color:var(--muted)}
+    .post .txt{white-space:pre-wrap;line-height:1.6;margin:8px 0}
+    .post img,.post video{max-width:100%;border-radius:10px;border:1px solid var(--line);margin-top:8px}
+    .bottom-nav{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);display:flex;gap:10px;padding:10px 12px;z-index:99}
+    .bottom-nav button{flex:1;padding:11px;border:1px solid var(--line);border-radius:12px;background:#fff;cursor:pointer;font-weight:600}
+    .bottom-nav button.on{border-color:#ffb7c6;background:#fff3f7;color:#b91f3f}
+    .top-tools{display:flex;justify-content:flex-end;margin-bottom:8px}
+    .mask{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;z-index:100}
+    .modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(92vw,520px);background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;display:none;z-index:101}
+    .modal h3{margin:0 0 8px}
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top-tools">
+    <button class="btn" id="btnConfig">⚙️ 配置</button>
+  </div>
+
+  <section id="pagePublish">
+    <div class="card">
+      <strong>发布</strong>
+      <textarea id="postContent" placeholder="说点什么...（可空，仅发图片/视频也行）" style="margin-top:8px"></textarea>
+      <div class="row" style="margin-top:8px"><input id="postImage" type="file" accept="image/*"></div>
+      <div class="row" style="margin-top:8px"><input id="postVideo" type="file" accept="video/*"></div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn p" id="btnPublish">发布</button>
+        <button class="btn" id="btnClear">清空</button>
+      </div>
+      <div class="muted">支持：文案 / 图片 / 视频 任意组合</div>
+    </div>
+  </section>
+
+  <section id="pageMe" class="hide">
+    <div class="card">
+      <div id="authOut">
+        <strong>邮箱登录（验证码链接）</strong>
+        <input id="email" placeholder="输入邮箱" style="margin-top:8px">
+        <div class="row" style="margin-top:8px">
+          <button class="btn p" id="btnSendLink">发送登录链接</button>
+        </div>
+        <div class="muted">会发到邮箱，点链接回到本页即登录。</div>
+      </div>
+
+      <div id="authIn" class="hide">
+        <div class="row" style="justify-content:space-between">
+          <div class="muted" id="whoami"></div>
+          <button class="btn" id="btnLogout">退出</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card profile">
+      <div class="bg" id="pBg"></div>
+      <div class="avatar" id="pAvatar"></div>
+      <div class="name" id="pName">名字</div>
+      <div class="bio" id="pBio">个签</div>
+      <div class="row" style="padding:0 12px 12px">
+        <button class="btn" id="btnEditProfile">编辑资料</button>
+      </div>
+      <div class="subtabs">
+        <button class="subtab on" data-filter="all">微博</button>
+        <button class="subtab" data-filter="video">视频</button>
+        <button class="subtab" data-filter="image">相册</button>
+        <button class="subtab" data-filter="text">筛选</button>
+      </div>
+    </div>
+
+    <div class="card"><div id="myPosts"></div></div>
+  </section>
+</div>
+
+<nav class="bottom-nav">
+  <button id="navPublish" class="on">发布</button>
+  <button id="navMe">我的</button>
+</nav>
+
+<div class="mask" id="mask"></div>
+
+<div class="modal" id="configModal">
+  <h3>Supabase 配置（只填一次）</h3>
+  <input id="cfgUrl" placeholder="Project URL" style="margin-bottom:8px">
+  <input id="cfgKey" placeholder="Publishable key" style="margin-bottom:8px">
+  <div class="row">
+    <button class="btn p" id="btnSaveConfig">保存配置</button>
+    <button class="btn" id="btnCloseConfig">关闭</button>
+  </div>
+</div>
+
+<div class="modal" id="profileModal">
+  <h3>编辑资料</h3>
+  <input id="editName" placeholder="昵称" style="margin-bottom:8px">
+  <textarea id="editBio" placeholder="个签" style="min-height:80px;margin-bottom:8px"></textarea>
+  <div class="row" style="margin-bottom:8px">
+    <label class="btn">头像 <input id="editAvatar" type="file" accept="image/*" style="display:none"></label>
+    <label class="btn">背景 <input id="editBg" type="file" accept="image/*" style="display:none"></label>
+  </div>
+  <div class="row">
+    <button class="btn p" id="btnSaveProfile">保存</button>
+    <button class="btn" id="btnCloseProfile">关闭</button>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const KEY_URL="weiji_sb_url", KEY_PUB="weiji_sb_pub";
+let sb=null, user=null, profile=null, posts=[], currentFilter="all";
+
+function getConfig(){ return { url:localStorage.getItem(KEY_URL)||"", key:localStorage.getItem(KEY_PUB)||"" }; }
+function setConfig(url,key){ localStorage.setItem(KEY_URL,url); localStorage.setItem(KEY_PUB,key); }
+function hasConfig(){ const c=getConfig(); return !!(c.url&&c.key); }
+
+function initClient(){
+  const c=getConfig();
+  if(!c.url || !c.key) return false;
+  sb = supabase.createClient(c.url, c.key);
+  sb.auth.onAuthStateChange(async()=>{ await refreshAuth(); });
+  return true;
+}
+
+function switchPage(me=false){
+  $("pagePublish").classList.toggle("hide",me);
+  $("pageMe").classList.toggle("hide",!me);
+  $("navPublish").classList.toggle("on",!me);
+  $("navMe").classList.toggle("on",me);
+}
+$("navPublish").onclick=()=>switchPage(false);
+$("navMe").onclick=()=>switchPage(true);
+
+function fmt(t){const d=new Date(t),p=n=>String(n).padStart(2,"0");return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;}
+function esc(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+
+async function upload(bucket,file,uid,prefix){
+  const ext=(file.name.split(".").pop()||"bin").toLowerCase();
+  const path=`${uid}/${prefix}_${Date.now()}.${ext}`;
+  const {error}=await sb.storage.from(bucket).upload(path,file,{upsert:true});
+  if(error) throw error;
+  return sb.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+}
+async function ensureProfile(){
+  const {data}=await sb.from("profiles").select("*").eq("id",user.id).maybeSingle();
+  if(data) return data;
+  await sb.from("profiles").insert({id:user.id,email:user.email,display_name:(user.email||"用户").split("@")[0]});
+  const {data:newP}=await sb.from("profiles").select("*").eq("id",user.id).single();
+  return newP;
+}
+function renderProfile(){
+  if(!user){
+    $("authOut").classList.remove("hide"); $("authIn").classList.add("hide");
+    $("pName").textContent="未登录"; $("pBio").textContent="登录后可编辑";
+    $("pAvatar").style.backgroundImage=""; $("pBg").style.backgroundImage="";
+    $("myPosts").innerHTML=`<div class="muted">请先登录</div>`; return;
+  }
+  $("authOut").classList.add("hide"); $("authIn").classList.remove("hide");
+  $("whoami").textContent=user.email||"";
+  $("pName").textContent=profile?.display_name||"新用户";
+  $("pBio").textContent=profile?.bio||"这个人很神秘";
+  $("pAvatar").style.backgroundImage=profile?.avatar_url?`url('${profile.avatar_url}')`:"";
+  $("pBg").style.backgroundImage=profile?.bg_url?`url('${profile.bg_url}')`:"";
+}
+function filterPosts(arr){
+  if(currentFilter==="video") return arr.filter(p=>p.video_url);
+  if(currentFilter==="image") return arr.filter(p=>p.image_url);
+  if(currentFilter==="text") return arr.filter(p=>!p.image_url&&!p.video_url&&p.content);
+  return arr;
+}
+function renderPosts(){
+  const arr=filterPosts(posts);
+  if(!arr.length){ $("myPosts").innerHTML=`<div class="muted">暂无内容</div>`; return; }
+  $("myPosts").innerHTML=arr.map(p=>`
+    <div class="post">
+      <div class="time">${fmt(p.created_at)}</div>
+      ${p.content?`<div class="txt">${esc(p.content)}</div>`:""}
+      ${p.image_url?`<img src="${p.image_url}">`:""}
+      ${p.video_url?`<video src="${p.video_url}" controls playsinline></video>`:""}
+      <div class="row" style="margin-top:8px"><button class="btn" onclick="delPost(${p.id})">删除</button></div>
+    </div>
+  `).join("");
+}
+async function loadPosts(){
+  if(!user) return;
+  const {data,error}=await sb.from("posts").select("*").eq("user_id",user.id).order("created_at",{ascending:false});
+  if(error){ $("myPosts").innerHTML=`<div class="muted">${error.message}</div>`; return; }
+  posts=data||[]; renderPosts();
+}
+async function refreshAuth(){
+  if(!sb) return;
+  const {data}=await sb.auth.getUser(); user=data.user||null;
+  if(user){ profile=await ensureProfile(); await loadPosts(); } else { profile=null; posts=[]; }
+  renderProfile();
+}
+
+// 配置弹窗
+function open(id){$("mask").style.display="block";$(id).style.display="block";}
+function close(id){$("mask").style.display="none";$(id).style.display="none";}
+$("btnConfig").onclick=()=>{
+  const c=getConfig(); $("cfgUrl").value=c.url; $("cfgKey").value=c.key; open("configModal");
+};
+$("btnCloseConfig").onclick=()=>close("configModal");
+$("btnSaveConfig").onclick=()=>{
+  const url=$("cfgUrl").value.trim(), key=$("cfgKey").value.trim();
+  if(!url||!key) return alert("请填完整");
+  setConfig(url,key); alert("已保存，页面会刷新"); location.reload();
+};
+
+// 登录（邮箱验证码链接）
+$("btnSendLink").onclick=async ()=>{
+  if(!sb) return alert("请先点⚙️填配置");
+  const email=$("email").value.trim();
+  if(!email) return alert("请输入邮箱");
+  const {error}=await sb.auth.signInWithOtp({
+    email,
+    options:{ emailRedirectTo: location.href }
+  });
+  if(error) return alert(error.message);
+  alert("已发送登录链接到邮箱，请点击邮件里的链接登录");
+};
+$("btnLogout").onclick=async ()=>{ if(sb){ await sb.auth.signOut(); await refreshAuth(); } };
+
+// 发布
+$("btnPublish").onclick=async ()=>{
+  if(!sb) return alert("先点⚙️配置");
+  if(!user) return alert("请先登录");
+  const content=$("postContent").value.trim();
+  const img=$("postImage").files[0];
+  const vid=$("postVideo").files[0];
+  if(!content && !img && !vid) return alert("至少发一个：文案/图片/视频");
+  try{
+    let image_url="", video_url="";
+    if(img) image_url=await upload("post-images",img,user.id,"img");
+    if(vid) video_url=await upload("post-videos",vid,user.id,"vid");
+    const {error}=await sb.from("posts").insert({user_id:user.id,content,image_url,video_url});
+    if(error) return alert(error.message);
+    $("postContent").value=""; $("postImage").value=""; $("postVideo").value="";
+    await loadPosts(); alert("发布成功"); switchPage(true);
+  }catch(e){ alert(e.message||e); }
+};
+$("btnClear").onclick=()=>{ $("postContent").value=""; $("postImage").value=""; $("postVideo").value=""; };
+
+// 子筛选
+document.querySelectorAll(".subtab").forEach(b=>{
+  b.onclick=()=>{ document.querySelectorAll(".subtab").forEach(x=>x.classList.remove("on")); b.classList.add("on"); currentFilter=b.dataset.filter; renderPosts(); }
+});
+
+// 编辑资料
+$("btnEditProfile").onclick=()=>{ if(!user) return alert("先登录"); $("editName").value=profile?.display_name||""; $("editBio").value=profile?.bio||""; open("profileModal"); };
+$("btnCloseProfile").onclick=()=>close("profileModal");
+$("mask").onclick=()=>{ close("configModal"); close("profileModal"); };
+$("btnSaveProfile").onclick=async ()=>{
+  if(!user||!sb) return;
+  try{
+    let avatar_url=profile?.avatar_url||"", bg_url=profile?.bg_url||"";
+    const av=$("editAvatar").files[0], bg=$("editBg").files[0];
+    if(av) avatar_url=await upload("profile-images",av,user.id,"avatar");
+    if(bg) bg_url=await upload("profile-images",bg,user.id,"bg");
+    const payload={id:user.id,email:user.email,display_name:$("editName").value.trim()||"新用户",bio:$("editBio").value.trim(),avatar_url,bg_url,updated_at:new Date().toISOString()};
+    const {error}=await sb.from("profiles").upsert(payload);
+    if(error) return alert(error.message);
+    profile=await ensureProfile(); renderProfile(); close("profileModal"); alert("保存成功");
+  }catch(e){ alert(e.message||e); }
+};
+
+window.delPost=async (id)=>{
+  if(!confirm("确定删除？")) return;
+  const {error}=await sb.from("posts").delete().eq("id",id).eq("user_id",user.id);
+  if(error) return alert(error.message);
+  await loadPosts();
+};
+
+if(initClient()) refreshAuth();
+</script>
+</body>
 </html>
